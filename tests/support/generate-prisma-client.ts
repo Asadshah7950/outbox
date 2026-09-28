@@ -7,7 +7,9 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export default function generatePrismaClient() {
-  const result = spawnSync('npm', ['run', '--silent', 'generate:prisma'], {
+  // One command string: npm is npm.cmd on Windows, which needs a shell, and Node 24
+  // deprecates passing an args array with `shell: true` (DEP0190).
+  const result = spawnSync('npm run --silent generate:prisma', {
     cwd: fileURLToPath(new URL('../..', import.meta.url)),
     encoding: 'utf8',
     shell: true,

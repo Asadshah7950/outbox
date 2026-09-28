@@ -20,6 +20,7 @@ import {
   type OutboxHandlerContext,
   type OutboxModuleOptions,
 } from '../lib/index.js';
+import { OUTBOX_HANDLER_METADATA } from '../lib/outbox.constants.js';
 import { registeredStore } from './helpers.js';
 
 const calls: string[] = [];
@@ -161,12 +162,37 @@ describe('@OnOutboxMessage handlers', () => {
     expect(() => OnOutboxMessage(null as any, { consumer: 'crm' })).toThrow(
       '@OnOutboxMessage(null) needs a topic: a non-empty string or array of non-empty strings.',
     );
+    expect(() => OnOutboxMessage('   ', { consumer: 'crm' })).toThrow(
+      '@OnOutboxMessage("   ") needs a topic',
+    );
+    expect(() => OnOutboxMessage(1n as any, { consumer: 'crm' })).toThrow(
+      '@OnOutboxMessage(the bigint 1) needs a topic',
+    );
+    expect(() => OnOutboxMessage(['order.placed', 'order.placed'], { consumer: 'crm' })).toThrow(
+      '@OnOutboxMessage(["order.placed","order.placed"]) lists "order.placed" more than once.',
+    );
+    expect(() => OnOutboxMessage('order.placed', { consumer: '  ' })).toThrow(
+      '@OnOutboxMessage("order.placed") needs { consumer }',
+    );
     expect(() => OnOutboxMessage('order.placed', {} as any)).toThrow(
       '@OnOutboxMessage("order.placed") needs { consumer }',
     );
     expect(() => OnOutboxMessage('order.placed', { consumer: '' })).toThrow(
       '@OnOutboxMessage("order.placed") needs { consumer }',
     );
+  });
+
+  it('keeps its own copy of the topics, so changing the array afterwards has no effect', () => {
+    const topics = ['order.placed'];
+    class Handlers {
+      @OnOutboxMessage(topics, { consumer: 'crm' })
+      handle() {}
+    }
+    topics.push('');
+
+    expect(Reflect.getMetadata(OUTBOX_HANDLER_METADATA, Handlers.prototype.handle)).toEqual([
+      { consumer: 'crm', topics: ['order.placed'] },
+    ]);
   });
 
   it('retries a message no handler in this process subscribes to (another version may)', async () => {
